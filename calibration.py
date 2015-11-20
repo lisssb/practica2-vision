@@ -7,27 +7,36 @@ import copy
 import numpy as np
 from operator import itemgetter
 from scipy.misc import imread
+# from scipy.misc import sort_nicely
 import matplotlib.pyplot as ppl
 from matplotlib.pyplot import imshow, plot
 # Una de las chapuzas de OpenCV ...
 from cv import CV_CALIB_FIX_ASPECT_RATIO
 
 
+
+def load_images(filename):
+    filenames = glob.glob(filename + '/left_*.*')
+    filenames = misc.sort_nicely(filenames)
+    matriz = [imread(i) for i in filenames]
+    return matriz
+
+
 def play_ar(intrinsic, extrinsic, imgs, model):
-    
+
     fig = ppl.gcf()
     fig.clf()
-    
+
     v = model.vertices
     e = model.edges
-    
+
     for T, img in zip(extrinsic, imgs):
         fig.clf()
-        
+
         # Do not show invalid detections.
         if T is None:
             continue
-        
+
         # TODO: Project the model with proj.
         # Hint: T is the extrinsic matrix for the current image.
 
@@ -95,4 +104,48 @@ def calibrate(image_corners, chessboard_points, image_size):
 
     return intrinsics, extrinsics, dist_coeffs
 
+# def get_chessboard_points(chessboard_shape, dx, dy):
+#     center_point_x = chessboard_shape[0][0][0]
+#     center_pint_y = chessboard_shape[0][0][1]
+#     coordinates = np.ones((len(chessboard_shape), 3))
+#     coordinates[0] = [0,0,0]
+#     for i in range(1, len(chessboard_shape)):
+#         x = (chessboard_shape[i][0][0] - center_point_x)/dx
+#         y = (chessboard_shape[i][0][1] - center_pint_y )/dy
+#         coordinates[i] =  [x,y,1]
+#     print coordinates
+#     return coordinates
+def get_chessboard_points(chessboard_shape, dx, dy):
+    num_points=chessboard_shape[0]*chessboard_shape[1]
+    points=np.ndarray(shape=(num_points,3))
+    acum_x=0
+    for i in range(chessboard_shape[1]):
+        acum_y=0
+        for j in range(chessboard_shape[0]):
+            idx = i*chessboard_shape[0]+j
+            points[idx][0]=acum_x
+            points[idx][1]=acum_y
+            points[idx][2]=0
+            acum_y=acum_y+dy
+        acum_x=acum_x+dx
+    return points
 
+
+def main():
+    images =  load_images('left')
+    corners = [cv2.findChessboardCorners(i, (8,6)) for i in images]
+    imgs2 = copy.deepcopy(images)
+    i = 0
+    for im, cor in zip(imgs2, corners):
+        if(cor[0]):
+            cv2.drawChessboardCorners(im, (8,6), cor[1], cor[0])
+
+    # for i in imgs2:
+    #         ppl.imshow(i)
+    #         ppl.show()
+
+    size = images[0].shape[0:2]
+    intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 300,300), size)
+    np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
+
+main()
