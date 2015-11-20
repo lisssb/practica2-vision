@@ -12,6 +12,7 @@ import matplotlib.pyplot as ppl
 from matplotlib.pyplot import imshow, plot
 # Una de las chapuzas de OpenCV ...
 from cv import CV_CALIB_FIX_ASPECT_RATIO
+import math
 
 
 
@@ -104,25 +105,14 @@ def calibrate(image_corners, chessboard_points, image_size):
 
     return intrinsics, extrinsics, dist_coeffs
 
-# def get_chessboard_points(chessboard_shape, dx, dy):
-#     center_point_x = chessboard_shape[0][0][0]
-#     center_pint_y = chessboard_shape[0][0][1]
-#     coordinates = np.ones((len(chessboard_shape), 3))
-#     coordinates[0] = [0,0,0]
-#     for i in range(1, len(chessboard_shape)):
-#         x = (chessboard_shape[i][0][0] - center_point_x)/dx
-#         y = (chessboard_shape[i][0][1] - center_pint_y )/dy
-#         coordinates[i] =  [x,y,1]
-#     print coordinates
-#     return coordinates
 def get_chessboard_points(chessboard_shape, dx, dy):
     num_points=chessboard_shape[0]*chessboard_shape[1]
     points=np.ndarray(shape=(num_points,3))
     acum_x=0
-    for i in range(chessboard_shape[1]):
+    for i in range(chessboard_shape[0]):
         acum_y=0
-        for j in range(chessboard_shape[0]):
-            idx = i*chessboard_shape[0]+j
+        for j in range(chessboard_shape[1]):
+            idx = i*chessboard_shape[1]+j
             points[idx][0]=acum_x
             points[idx][1]=acum_y
             points[idx][2]=0
@@ -130,6 +120,11 @@ def get_chessboard_points(chessboard_shape, dx, dy):
         acum_x=acum_x+dx
     return points
 
+def calculate_horizontal_fov(intrinsic, image_size):
+    mid_horizontal = image_size[1] * 0.5
+    focal_length_px = intrinsic[0][0]
+    mid_fov = math.atan(mid_horizontal/focal_length_px)
+    return mid_fov * 2
 
 def main():
     images =  load_images('left')
@@ -147,5 +142,6 @@ def main():
     size = images[0].shape[0:2]
     intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 300,300), size)
     np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
+    print calculate_horizontal_fov(intrinsic, size)
 
 main()
