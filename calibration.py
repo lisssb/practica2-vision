@@ -140,6 +140,13 @@ def proj(K, T, verts):
     screen_points = np.asarray(screen_points_list)
     return screen_points.T
 
+def plothom(points):
+    x = points[0]
+    y = points[1]
+    landa = points[2]
+    ppl.plot(x/landa, y/landa, marker='+', linestyle='None', fillstyle='full', color='#009999')
+    ppl.show()
+
 def main():
     images =  load_images('left')
     corners = [cv2.findChessboardCorners(i, (8,6)) for i in images]
@@ -158,7 +165,5 @@ def main():
     np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
     # print 'focal value'
     # print calculate_fov(intrinsic, size)
-
-    proj(intrinsic, extrinsic, bunny.vertices)
 
 main()
