@@ -41,9 +41,10 @@ def play_ar(intrinsic, extrinsic, imgs, model):
 
         # TODO: Project the model with proj.
         # Hint: T is the extrinsic matrix for the current image.
-
+        points = proj(intrinsic, T, v)
 
         # TODO: Draw the model with plothom or plotedges.
+        plothom(points)
 
 
 
@@ -144,7 +145,7 @@ def plothom(points):
     x = points[0]
     y = points[1]
     landa = points[2]
-    ppl.plot(x/landa, y/landa, marker='+', linestyle='None', fillstyle='full', color='#009999')
+    ppl.plot(x/landa, y/landa, marker='.', linestyle='None', fillstyle='full', color='#009999')
     ppl.show()
 
 def main():
@@ -161,9 +162,13 @@ def main():
     #         ppl.show()
 
     size = images[0].shape[0:2]
-    intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 300,300), size)
+    intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 30,30), size)
     np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
     # print 'focal value'
     # print calculate_fov(intrinsic, size)
+    # plothom(proj(intrinsic, extrinsic[15], bunny.vertices))
+    play_ar(intrinsic, extrinsic, images, bunny)
+    # ppl.show()
+
 
 main()
