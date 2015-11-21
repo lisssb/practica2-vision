@@ -13,6 +13,7 @@ from matplotlib.pyplot import imshow, plot
 # Una de las chapuzas de OpenCV ...
 from cv import CV_CALIB_FIX_ASPECT_RATIO
 import math
+from models import bunny
 
 
 
@@ -120,11 +121,24 @@ def get_chessboard_points(chessboard_shape, dx, dy):
         acum_x=acum_x+dx
     return points
 
-def calculate_horizontal_fov(intrinsic, image_size):
-    mid_horizontal = image_size[1] * 0.5
+def calculate_fov(intrinsic, image_size):
+    W = image_size[1]
     focal_length_px = intrinsic[0][0]
-    mid_fov = math.atan(mid_horizontal/focal_length_px)
+    mid_fov = math.atan(W/(2*focal_length_px))
     return mid_fov * 2
+
+'''
+funcion que convierte los puntos dados en verts 3d a puntos 2d en la image_points'''
+def proj(K, T, verts):
+    screen_points_list=[]
+    rotation_translation = np.delete(T,3,0) # Eliminamos la ltima fila que no nos aporta informaic
+    for v in verts.T:
+        aux = np.dot(rotation_translation, v)
+        vert = np.dot( K , aux)
+        screen_points_list.append(vert)
+
+    screen_points = np.asarray(screen_points_list)
+    return screen_points.T
 
 def main():
     images =  load_images('left')
@@ -142,6 +156,9 @@ def main():
     size = images[0].shape[0:2]
     intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 300,300), size)
     np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
-    print calculate_horizontal_fov(intrinsic, size)
+    # print 'focal value'
+    # print calculate_fov(intrinsic, size)
+
+    proj(intrinsic, extrinsic, bunny.vertices)
 
 main()
