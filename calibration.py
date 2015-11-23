@@ -14,30 +14,35 @@ from matplotlib.pyplot import imshow, plot
 from cv import CV_CALIB_FIX_ASPECT_RATIO
 import math
 from models import bunny
+from models import teapot
+from models import cubo
 
 
 
 def load_images(filename):
-    filenames = glob.glob(filename + '/left_*.*')
+    filenames = glob.glob(filename + '/*_*.*')
     filenames = misc.sort_nicely(filenames)
     matriz = [imread(i) for i in filenames]
     return matriz
 
-
 def play_ar(intrinsic, extrinsic, imgs, model):
-
     fig = ppl.gcf()
     fig.clf()
 
     v = model.vertices
     e = model.edges
 
-    for T, img in zip(extrinsic, imgs):
-        fig.clf()
+    rotation_translation = misc.ang2rotmatrix(0, 0, 90)# get the rotation in z
+    rotation_translation = np.column_stack((rotation_translation, [80, 80,0])) # add the traslation vecotr
+    rotation_translation = np.row_stack((rotation_translation, [0,0,0,1]))
 
+    for T, img in zip(extrinsic, imgs):
+
+        fig.clf()
         # Do not show invalid detections.
         if T is None:
             continue
+        T = np.dot(T, rotation_translation)
 
         # TODO: Project the model with proj.
         # Hint: T is the extrinsic matrix for the current image.
@@ -45,8 +50,6 @@ def play_ar(intrinsic, extrinsic, imgs, model):
 
         # TODO: Draw the model with plothom or plotedges.
         plothom(points)
-
-
 
         # Plot the image.
         imshow(img)
@@ -108,55 +111,76 @@ def calibrate(image_corners, chessboard_points, image_size):
     return intrinsics, extrinsics, dist_coeffs
 
 def get_chessboard_points(chessboard_shape, dx, dy):
-    num_points=chessboard_shape[0]*chessboard_shape[1]
-    points=np.ndarray(shape=(num_points,3))
-    acum_x=0
-    for i in range(chessboard_shape[0]):
-        acum_y=0
-        for j in range(chessboard_shape[1]):
-            idx = i*chessboard_shape[1]+j
-            points[idx][0]=acum_x
-            points[idx][1]=acum_y
-            points[idx][2]=0
-            acum_y=acum_y+dy
-        acum_x=acum_x+dx
+    num_points = chessboard_shape[0]*chessboard_shape[1]
+    points = np.ndarray(shape=(num_points,3))
+    coordinate_x = 0
+    for i in range(chessboard_shape[1]):
+        coordinate_y = 0
+        for j in range(chessboard_shape[0]):
+            indice_i = i*chessboard_shape[0]+j
+            points[indice_i][0] = coordinate_x
+            points[indice_i][1] = coordinate_y
+            points[indice_i][2] = 0
+            coordinate_y = coordinate_y+dy
+        coordinate_x = coordinate_x+dx
     return points
 
-def calculate_fov(intrinsic, image_size):
+def calculate_diagonal_fov(intrinsic, image_size):
+    """calculate_diagonal_fov.
+    This function determines the diagonal angle of view that encompasses the camera.
+    Parameters
+    ----------
+    intrinsic : ndarray
+        3x3 intrinsic matrix
+    image_size : tuple
+        Size (height,width) of the images captured by the camera.
+
+    Output
+    ------
+    Angle : integer
+        angle in degrees
+    """
+    focal_x = intrinsic[0][0]
+    focal_y = intrinsic[1][1]
     W = image_size[1]
-    focal_length_px = intrinsic[0][0]
-    mid_fov = math.atan(W/(2*focal_length_px))
-    return mid_fov * 2
+    H = image_size[0]
+    radians = 2 * math.atan(math.sqrt((W/(2*focal_x))**2 + (H/(2*focal_y))**2))
+    return radians * 180 / math.pi
 
 '''
 funcion que convierte los puntos dados en verts 3d a puntos 2d en la image_points'''
 def proj(K, T, verts):
-    screen_points_list=[]
+    points_list=[]
     rotation_translation = np.delete(T,3,0) # Eliminamos la ltima fila que no nos aporta informaic
     for v in verts.T:
-        aux = np.dot(rotation_translation, v)
-        vert = np.dot( K , aux)
-        screen_points_list.append(vert)
+        rt = np.dot(rotation_translation, v)
+        vert = np.dot( K , rt)
+        points_list.append(vert)
 
-    screen_points = np.asarray(screen_points_list)
-    return screen_points.T
+    points = np.asarray(points_list)
+    return points.T
 
 def plothom(points):
     x = points[0]
     y = points[1]
     landa = points[2]
-    ppl.plot(x/landa, y/landa, marker='.', linestyle='None', fillstyle='full', color='#009999')
+    ppl.plot(x/landa, y/landa, marker='.', linestyle='.', color='#9e56eb')#'#009999')
     ppl.show()
+
+def get_distance(extrinsic, extrinsic_r):
+    right_camera_in_left = np.dot(extrinsic[1], extrinsic_r[1][:,3])
+    distance = right_camera_in_left - extrinsic[1][:,3]
+    return right_camera_in_left, np.linalg.norm(distance)
 
 def main():
     images =  load_images('left')
     corners = [cv2.findChessboardCorners(i, (8,6)) for i in images]
     imgs2 = copy.deepcopy(images)
-    i = 0
     for im, cor in zip(imgs2, corners):
         if(cor[0]):
             cv2.drawChessboardCorners(im, (8,6), cor[1], cor[0])
 
+    #This for is used to draw all the square on each image
     # for i in imgs2:
     #         ppl.imshow(i)
     #         ppl.show()
@@ -164,11 +188,21 @@ def main():
     size = images[0].shape[0:2]
     intrinsic, extrinsic, dist_coeff = calibrate(corners, get_chessboard_points((8, 6), 30,30), size)
     np.savez('calib_left', intrinsic=intrinsic, extrinsic=extrinsic)
-    # print 'focal value'
-    # print calculate_fov(intrinsic, size)
-    # plothom(proj(intrinsic, extrinsic[15], bunny.vertices))
-    play_ar(intrinsic, extrinsic, images, bunny)
-    # ppl.show()
+
+    # play_ar(intrinsic, extrinsic, images, teapot)
+    # play_ar(intrinsic, extrinsic, images, bunny)
+    # play_ar(intrinsic, extrinsic, images, cubo)
+
+    images_r =  load_images('right')
+    corners_r = [cv2.findChessboardCorners(i, (8,6)) for i in images_r]
+    size_r = images_r[0].shape[0:2]
+    intrinsic_r, extrinsic_r, dist_coeff_r = calibrate(corners_r, get_chessboard_points((8, 6), 30,30), size_r)
+    np.savez('calib_right', intrinsic=intrinsic_r, extrinsic=extrinsic_r)
 
 
+    # print calculate_diagonal_fov(intrinsic, size)
+    #problema 12
+    right_camera_in_left, distance = get_distance(extrinsic, extrinsic_r)
+    print 'right camera in left ::\n', right_camera_in_left
+    print 'dsistance ::\n', distance
 main()
